@@ -28,7 +28,6 @@ public class FrontServlet extends HttpServlet {
     private HashMap<String, Mapping> analyzeModelsDirectory() {
         HashMap<String, Mapping> mappings = new HashMap<>();
         String MODELS_DIR = getServletContext().getRealPath("/WEB-INF/classes");
-
         File dir = new File(MODELS_DIR);
         File[] files = dir.listFiles();
 
@@ -75,4 +74,5 @@ public class FrontServlet extends HttpServlet {
         PrintWriter out = resp.getWriter();
         out.println("");
     }
+
 }
