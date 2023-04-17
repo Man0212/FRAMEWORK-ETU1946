@@ -4,9 +4,10 @@ import etu1946.framework.Mapping;
 import etu1946.framework.annotation.Url;
 import etu1946.framework.view.ModelView;
 
+
 import java.io.*;
-import javax.servlet.*;
-import javax.servlet.http.*;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.lang.annotation.Target;
@@ -19,7 +20,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 
-public class FrontServlet extends HttpServlet 
+public class FrontServlet extends HttpServlet
     {
 
         HashMap<String, Mapping> mappingUrls;
@@ -30,10 +31,10 @@ public class FrontServlet extends HttpServlet
         }
 
 
-        
+
         private HashMap<String, Mapping> analyzeModelsDirectory() {
             HashMap<String, Mapping> mappings = new HashMap<>();
-            String MODELS_DIR = getServletContext().getRealPath("/WEB-INF/classes");
+            String MODELS_DIR = getServletContext().getRealPath("/WEB-INF/classes/etu1946/framework/models");
             File dir = new File(MODELS_DIR);
             File[] files = dir.listFiles();
 
@@ -48,7 +49,7 @@ public class FrontServlet extends HttpServlet
                                 mappings.put(annotationName, mapping);
                         }
                     } catch (ClassNotFoundException e) {
-                    
+
                     }
                 }
             }
@@ -59,7 +60,7 @@ public class FrontServlet extends HttpServlet
             String fileName = file.getName();
             return fileName.substring(0, fileName.lastIndexOf("."));
         }
-        
+
         public void setMappingUrls(HashMap<String, Mapping> mappingUrls) {
             this.mappingUrls = mappingUrls;
         }
@@ -67,12 +68,12 @@ public class FrontServlet extends HttpServlet
         public HashMap<String, Mapping> getMappingUrls() {
             return this.mappingUrls;
         }
-        
+
         protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
             try {
                 processRequest(req, resp);
             } catch (Exception ex) {
-                
+
             }
         }
 
@@ -80,23 +81,36 @@ public class FrontServlet extends HttpServlet
             try {
                 processRequest(req, resp);
             } catch (Exception ex) {
-                
+
             }
         }
 
         private void processRequest(HttpServletRequest req, HttpServletResponse resp) throws  ServletException, IOException {
-        try (PrintWriter out = resp.getWriter()) {
-            String urlPattern = getURLPattern(req);
-                if(mappingUrls.containsKey(urlPattern) == true) {
-                ModelView mv = getMethodeMV(mappingUrls.get(urlPattern));
-                out.println("classe selected "+mappingUrls.get(urlPattern).getClassName());
-                out.println("Method selected"+mappingUrls.get(urlPattern).getMethod());
+            PrintWriter out = resp.getWriter();
+        try{
+            String urlPattern = "TEST/hello";
+                Mapping mapping = mappingUrls.get(urlPattern);
+                if(mapping != null) {
+
+                ModelView mv = getMethodeMV(mapping);
+                out.println("classe selected "+mapping.getClassName());
+                out.println("Method selected"+mapping.getMethod());
                 out.println("modelView.getView -> "+mv.getView());
-                RequestDispatcher dispat = req.getRequestDispatcher(mv.getView());
-                dispat.forward(req, resp); 
+
+                if (mv.getData() != null) {
+                    for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
+                        req.setAttribute(entry.getKey(), entry.getValue());
+                    }
+                }
+                
+                RequestDispatcher dispat = req.getRequestDispatcher("WEB-INF/" + mv.getView());
+                dispat.forward(req, resp);
+
+                }else{
+                    out.println("none");
                 }
             }catch(Exception e){
-
+                out.println(e);
             }
         }
 
@@ -104,7 +118,7 @@ public class FrontServlet extends HttpServlet
             String className = mapping.getClassName();
             String methodName = mapping.getMethod();
             ClassLoader loader = Thread.currentThread().getContextClassLoader();
-            Class load = loader.loadClass(className);
+            Class load = loader.loadClass("etu1946.framework.models."+className);
             Method methode = load.getMethod(methodName);
             Object obj = load.getConstructor().newInstance();
             ModelView mv = (ModelView) methode.invoke(obj);
