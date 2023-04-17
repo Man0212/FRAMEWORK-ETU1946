@@ -88,7 +88,7 @@ public class FrontServlet extends HttpServlet
         private void processRequest(HttpServletRequest req, HttpServletResponse resp) throws  ServletException, IOException {
             PrintWriter out = resp.getWriter();
         try{
-            String urlPattern = "TEST/hello";
+            String urlPattern = getURLPattern(req);
                 Mapping mapping = mappingUrls.get(urlPattern);
                 if(mapping != null) {
 
