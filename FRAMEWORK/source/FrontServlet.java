@@ -91,15 +91,21 @@ public class FrontServlet extends HttpServlet
             String urlPattern = getURLPattern(req);
                 Mapping mapping = mappingUrls.get(urlPattern);
                 if(mapping != null) {
-
+                Map<String, String[]> params = req.getParameterMap();
                 ModelView mv = getMethodeMV(mapping);
-                out.println("classe selected "+mapping.getClassName());
-                out.println("Method selected"+mapping.getMethod());
-                out.println("modelView.getView -> "+mv.getView());
 
                 if (mv.getData() != null) {
                     for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
                         req.setAttribute(entry.getKey(), entry.getValue());
+                    }
+                }
+                
+                if (!params.isEmpty()){
+                    for (String param : params.keySet()) {
+                    String[] values = params.get(param);
+                        for (int i = 0; i < values.length; i++) {
+                            req.setAttribute(param, values[i]);
+                        }
                     }
                 }
                 
