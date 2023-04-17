@@ -5,10 +5,16 @@ import etu1946.framework.view.ModelView;
 
 public class Emp {
 
-    @Url("hello")
+    @Url("TEST/hello")
     public ModelView welcome() {
         ModelView vue = new ModelView();
-        vue.setView("list.html");
+        try{
+        vue.setView("list.jsp");
+        String value = "Tsy Hello World";
+        vue.addItem("test",value);
+         }catch(Exception e){
+                
+         }
         return vue;
     }
 }
