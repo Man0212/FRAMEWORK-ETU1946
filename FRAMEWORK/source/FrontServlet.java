@@ -2,7 +2,10 @@ package etu1946.framework.servlet;
 
 import etu1946.framework.Mapping;
 import etu1946.framework.annotation.Url;
+import etu1946.framework.annotation.Scope;
 import etu1946.framework.view.ModelView;
+import etu1946.framework.utils.Utils;
+
 
 
 import java.io.*;
@@ -28,7 +31,7 @@ import java.util.Date;
 
 public class FrontServlet extends HttpServlet
     {
-
+        HashMap<String, Object> singleton = new HashMap<>();
         HashMap<String, Mapping> mappingUrls;
 
         public void init() throws ServletException {
@@ -65,6 +68,8 @@ public class FrontServlet extends HttpServlet
             }
         }
 
+
+
         private HashMap<String, Mapping> analyzeModelsDirectory() {
             HashMap<String, Mapping> mappings = new HashMap<>();
             String MODELS_DIR = getServletContext().getRealPath("/WEB-INF/classes/etu1946/framework/models");
@@ -74,60 +79,91 @@ public class FrontServlet extends HttpServlet
             for (File file : files) {
                 if (file.isFile()) {
                     try {
-                        Class<?> cls = Class.forName("etu1946.framework.models."+getClassNameFromFile(file));
+                        Class<?> cls = Class.forName("etu1946.framework.models." + getClassNameFromFile(file));
+
+                        if (((Scope) cls.getAnnotation(Scope.class)).value().equals("singleton")) {
+                            singleton.put(cls.getName(), cls.newInstance());
+                        }
+
                         Method[] methods = cls.getDeclaredMethods();
                         for (Method method : methods) {
+                            if (method.isAnnotationPresent(Url.class)) {
                                 String annotationName = method.getAnnotation(Url.class).value();
                                 Mapping mapping = new Mapping(getClassNameFromFile(file), method.getName());
                                 mappings.put(annotationName, mapping);
+                            }
                         }
-                    } catch (ClassNotFoundException e) {
-
+                    } catch (Exception e) {
                     }
                 }
             }
             return mappings;
         }
 
-        
+                
 
-        private void processRequest(HttpServletRequest req, HttpServletResponse resp) throws  ServletException, IOException {
+        private void processRequest(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
             PrintWriter out = resp.getWriter();
-        try{
-            String urlPattern = getURLPattern(req);
+            try {
+                String urlPattern = getURLPattern(req);
                 Mapping mapping = mappingUrls.get(urlPattern);
-                
-                if(mapping != null) {
-                Map<String, String[]> params = req.getParameterMap();
-                ModelView mv = getMethodeMV(mapping,out,params);
+                if (mapping != null) {
+                    Map<String, String[]> params = req.getParameterMap();
+                    ModelView mv = getMethodeMV(mapping, out, params);
 
-                if (mv.getData() != null) {
-                    for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
-                        req.setAttribute(entry.getKey(), entry.getValue());
-                    }
-                }
-                
-                if (!params.isEmpty()){
-                    for (String param : params.keySet()) {
-                    String[] values = params.get(param);
-                        for (int i = 0; i < values.length; i++) {
-                            req.setAttribute(param, values[i]);
+                    if (mv.getData() != null) {
+                        for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
+                            req.setAttribute(entry.getKey(), entry.getValue());
                         }
                     }
-                }
-                
-                RequestDispatcher dispat = req.getRequestDispatcher(mv.getView());
-                dispat.forward(req, resp);
-                    
-            
-                }else{
+
+                    Object obj = To_Object(mapping.getClassName(), params,out);
+                    req.setAttribute("test", obj);
+                    RequestDispatcher dispat = req.getRequestDispatcher(mv.getView());
+                    dispat.forward(req, resp);
+
+                } else {
                     out.println("none");
                 }
-            }catch(Exception e){
-                out.println(e);
+            } catch (Exception e) {
+                e.printStackTrace(out);
             }
         }
 
+        public Object To_Object(String className, Map<String, String[]> params, PrintWriter out) throws Exception {
+            Object obj = null;
+            try {
+                if (singleton.containsKey(className)) {
+                    obj = singleton.get(className);
+                    Utils.resetFieldsToDefaultValues(obj);
+                } else {
+                    Class<?> cls = Class.forName("etu1946.framework.models." + className);
+                    obj = cls.getDeclaredConstructor().newInstance();
+                }
+
+                Field[] fields = obj.getClass().getDeclaredFields();
+                String setterName;
+                for (Field field : fields) {
+                    field.setAccessible(true);
+                    String fieldName = field.getName();
+                    if (params.containsKey(fieldName)) {
+                        String[] values = params.get(fieldName);
+                        Class<?> fieldType = field.getType();
+                        Object fieldValue = Utils.castValueWithType(fieldType,values[0]);
+                        setterName = "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
+
+                        Method setterMethod = obj.getClass().getDeclaredMethod(setterName, fieldType);
+                        setterMethod.invoke(obj, fieldValue);
+                    }
+                }
+            } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new Exception("Error creating object: " + e.getMessage(), e);
+            }
+            return obj;
+        }
+
+
+       
         private ModelView getMethodeMV(Mapping mapping, PrintWriter out, Map<String, String[]> params) throws Exception {
             String className = mapping.getClassName();
             String methodName = mapping.getMethod();
@@ -143,12 +179,10 @@ public class FrontServlet extends HttpServlet
                 }
             }
 
-
             Url annotation = method.getAnnotation(Url.class);
             Object[] arguments = new Object[annotation.params().length];
             String[] valeurs = annotation.params();
             String[] args = annotation.params();
-            
             
             Parameter[] parameters = method.getParameters();
 
@@ -158,7 +192,7 @@ public class FrontServlet extends HttpServlet
                 for (String param : params.keySet()) {
                     if (args[i].equals(param)) {
                         String[] values = params.get(param);
-                        arguments[i] = castValueWithType(parameterType, values[0]);
+                        arguments[i] = Utils.castValueWithType(parameterType,values[0]);
                         found = true;
                         break;
                     }
@@ -182,34 +216,4 @@ public class FrontServlet extends HttpServlet
             }
             return rep.substring(1);
         }
-
-        private Object castValueWithType(Class<?> parameterType, String value) {
-            if (parameterType == int.class || parameterType == Integer.class) {
-                return Integer.parseInt(value);
-            } else if (parameterType == double.class || parameterType == Double.class) {
-                return Double.parseDouble(value);
-            } else if (parameterType == float.class || parameterType == Float.class) {
-                return Float.parseFloat(value);
-            } else if (parameterType == long.class || parameterType == Long.class) {
-                return Long.parseLong(value);
-            } else if (parameterType == boolean.class || parameterType == Boolean.class) {
-                return Boolean.parseBoolean(value);
-            } else if (parameterType == String.class) {
-                return value;
-            } else if (parameterType == Date.class) {
-                SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                try {
-                    return dateFormat.parse(value);
-                } catch (ParseException e) {
-                    // Handle the parse exception if needed
-                    e.printStackTrace();
-                    return null;
-                }
-            } else {
-                // Handle other types if needed
-                return null; // Return null for unsupported types
-            }
-        }
-
-
     }
