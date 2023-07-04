@@ -1,6 +1,6 @@
-#compilation
+
 cd source
-javac -d classes *.java
+javac -cp ../lib/servlet-api.jar -d classes *.java
 
 #to .jar
 cd classes

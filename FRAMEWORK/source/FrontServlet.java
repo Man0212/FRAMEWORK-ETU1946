@@ -19,6 +19,12 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Parameter;
+import java.lang.annotation.*;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 
 public class FrontServlet extends HttpServlet
     {
@@ -28,32 +34,6 @@ public class FrontServlet extends HttpServlet
         public void init() throws ServletException {
             super.init();
             this.setMappingUrls(analyzeModelsDirectory());
-        }
-
-
-
-        private HashMap<String, Mapping> analyzeModelsDirectory() {
-            HashMap<String, Mapping> mappings = new HashMap<>();
-            String MODELS_DIR = getServletContext().getRealPath("/WEB-INF/classes/etu1946/framework/models");
-            File dir = new File(MODELS_DIR);
-            File[] files = dir.listFiles();
-
-            for (File file : files) {
-                if (file.isFile()) {
-                    try {
-                        Class<?> cls = Class.forName("etu1946.framework.models."+getClassNameFromFile(file));
-                        Method[] methods = cls.getDeclaredMethods();
-                        for (Method method : methods) {
-                                String annotationName = method.getAnnotation(Url.class).value();
-                                Mapping mapping = new Mapping(getClassNameFromFile(file), method.getName());
-                                mappings.put(annotationName, mapping);
-                        }
-                    } catch (ClassNotFoundException e) {
-
-                    }
-                }
-            }
-            return mappings;
         }
 
         private String getClassNameFromFile(File file) {
@@ -85,14 +65,41 @@ public class FrontServlet extends HttpServlet
             }
         }
 
+        private HashMap<String, Mapping> analyzeModelsDirectory() {
+            HashMap<String, Mapping> mappings = new HashMap<>();
+            String MODELS_DIR = getServletContext().getRealPath("/WEB-INF/classes/etu1946/framework/models");
+            File dir = new File(MODELS_DIR);
+            File[] files = dir.listFiles();
+
+            for (File file : files) {
+                if (file.isFile()) {
+                    try {
+                        Class<?> cls = Class.forName("etu1946.framework.models."+getClassNameFromFile(file));
+                        Method[] methods = cls.getDeclaredMethods();
+                        for (Method method : methods) {
+                                String annotationName = method.getAnnotation(Url.class).value();
+                                Mapping mapping = new Mapping(getClassNameFromFile(file), method.getName());
+                                mappings.put(annotationName, mapping);
+                        }
+                    } catch (ClassNotFoundException e) {
+
+                    }
+                }
+            }
+            return mappings;
+        }
+
+        
+
         private void processRequest(HttpServletRequest req, HttpServletResponse resp) throws  ServletException, IOException {
             PrintWriter out = resp.getWriter();
         try{
             String urlPattern = getURLPattern(req);
                 Mapping mapping = mappingUrls.get(urlPattern);
+                
                 if(mapping != null) {
                 Map<String, String[]> params = req.getParameterMap();
-                ModelView mv = getMethodeMV(mapping);
+                ModelView mv = getMethodeMV(mapping,out,params);
 
                 if (mv.getData() != null) {
                     for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
@@ -109,9 +116,10 @@ public class FrontServlet extends HttpServlet
                     }
                 }
                 
-                RequestDispatcher dispat = req.getRequestDispatcher("WEB-INF/" + mv.getView());
+                RequestDispatcher dispat = req.getRequestDispatcher(mv.getView());
                 dispat.forward(req, resp);
-
+                    
+            
                 }else{
                     out.println("none");
                 }
@@ -120,16 +128,51 @@ public class FrontServlet extends HttpServlet
             }
         }
 
-        private ModelView getMethodeMV(Mapping mapping) throws Exception {
+        private ModelView getMethodeMV(Mapping mapping, PrintWriter out, Map<String, String[]> params) throws Exception {
             String className = mapping.getClassName();
             String methodName = mapping.getMethod();
             ClassLoader loader = Thread.currentThread().getContextClassLoader();
-            Class load = loader.loadClass("etu1946.framework.models."+className);
-            Method methode = load.getMethod(methodName);
+            Class<?> load = loader.loadClass("etu1946.framework.models." + className);
+            Method method = null;
+
+            // Recherche de la méthode par nom
+            for (Method m : load.getMethods()) {
+                if (m.getName().equals(methodName)) {
+                    method = m;
+                    break;
+                }
+            }
+
+
+            Url annotation = method.getAnnotation(Url.class);
+            Object[] arguments = new Object[annotation.params().length];
+            String[] valeurs = annotation.params();
+            String[] args = annotation.params();
+            
+            
+            Parameter[] parameters = method.getParameters();
+
+            for (int i = 0; i < args.length; i++) {
+                Class<?> parameterType = parameters[i].getType();
+                boolean found = false;
+                for (String param : params.keySet()) {
+                    if (args[i].equals(param)) {
+                        String[] values = params.get(param);
+                        arguments[i] = castValueWithType(parameterType, values[0]);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    arguments[i] = null;
+                }
+            }
+
             Object obj = load.getConstructor().newInstance();
-            ModelView mv = (ModelView) methode.invoke(obj);
+            ModelView mv = (ModelView) method.invoke(obj, arguments);
             return mv;
         }
+
 
         public static String getURLPattern(HttpServletRequest request) throws Exception {
             String rep = request.getServletPath();
@@ -139,4 +182,34 @@ public class FrontServlet extends HttpServlet
             }
             return rep.substring(1);
         }
+
+        private Object castValueWithType(Class<?> parameterType, String value) {
+            if (parameterType == int.class || parameterType == Integer.class) {
+                return Integer.parseInt(value);
+            } else if (parameterType == double.class || parameterType == Double.class) {
+                return Double.parseDouble(value);
+            } else if (parameterType == float.class || parameterType == Float.class) {
+                return Float.parseFloat(value);
+            } else if (parameterType == long.class || parameterType == Long.class) {
+                return Long.parseLong(value);
+            } else if (parameterType == boolean.class || parameterType == Boolean.class) {
+                return Boolean.parseBoolean(value);
+            } else if (parameterType == String.class) {
+                return value;
+            } else if (parameterType == Date.class) {
+                SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                try {
+                    return dateFormat.parse(value);
+                } catch (ParseException e) {
+                    // Handle the parse exception if needed
+                    e.printStackTrace();
+                    return null;
+                }
+            } else {
+                // Handle other types if needed
+                return null; // Return null for unsupported types
+            }
+        }
+
+
     }
