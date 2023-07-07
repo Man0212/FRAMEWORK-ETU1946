@@ -7,6 +7,7 @@ import etu1946.framework.annotation.Auth;
 import etu1946.framework.view.ModelView;
 import etu1946.framework.utils.Utils;
 
+import com.google.gson.Gson;
 import java.io.*;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
@@ -132,8 +133,16 @@ public class FrontServlet extends HttpServlet
                     ModelView mv = getMethodeMV(mapping, out, params);
 
                     if (mv.getData() != null) {
-                        for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
-                            req.setAttribute(entry.getKey(), entry.getValue());
+                        if(mv.isJson()){
+                            Gson gson = new Gson();
+                            for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
+                                String json = gson.toJson(entry.getValue());
+                                req.setAttribute(entry.getKey(),json);
+                            }
+                        }else{
+                            for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
+                                req.setAttribute(entry.getKey(), entry.getValue());
+                            }
                         }
                     }
 

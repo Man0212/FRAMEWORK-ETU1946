@@ -30,7 +30,8 @@ public void setAge(Integer age) {
         Emp user = new Emp();
         user.setNom(nom);
         user.setAge(age);
-        vue.addItem("age",age*age);
+        vue.setJson(true);
+        vue.addItem("user",user);
         
          }catch(Exception e){
                 
