@@ -1,6 +1,7 @@
 package etu1946.framework.models;
 import etu1946.framework.annotation.Url;
 import etu1946.framework.annotation.Scope;
+import etu1946.framework.annotation.RestAPI;
 import etu1946.framework.view.ModelView;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -37,6 +38,19 @@ public void setAge(Integer age) {
                 
          }
         return vue;
+    }
+
+    @RestAPI("json")
+    @Url(value="tableau",params = {"nom"})
+    public Emp[] tableau(String nom) {
+        Emp[] tab = new Emp[2];
+        tab[0]= new Emp();
+        tab[1]= new Emp();
+        tab[0].setNom(nom);
+        tab[0].setAge(19);
+        tab[1].setNom("Alain");
+        tab[1].setAge(20);
+        return tab;
     }
     
       @Url("formulaire")

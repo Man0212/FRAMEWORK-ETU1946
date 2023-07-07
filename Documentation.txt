@@ -1,0 +1,31 @@
+CONTRAINTE :
+
+imporation :
+	import etu1946.framework.annotation.Url;
+	import etu1946.framework.annotation.Scope;
+	import etu1946.framework.annotation.RestAPI;
+	import etu1946.framework.view.ModelView;
+
+
+package :
+	package etu1946.framework.models;
+
+
+Annotation :
+    @Url(value="nomMethode",params = {"arg1","arg2"})
+    @RestAPI("") || @RestAPI("json")
+
+web.xml :
+    <servlet>
+      <servlet-name>FrontServlet</servlet-name>
+      <servlet-class>etu1946.framework.servlet.FrontServlet</servlet-class>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>FrontServlet</servlet-name>
+        <url-pattern>/</url-pattern>
+    </servlet-mapping>
+
+copier dans lib avec framework :
+	gson-2.8.9.jar
+
