@@ -4,7 +4,28 @@ import java.util.HashMap;
 
 public class ModelView {
     String view;
+    boolean isJson = false;
     HashMap<String, Object> data;
+    HashMap<String, Object> session = new HashMap<>();
+
+    public boolean isJson() {
+        return isJson;
+    }
+
+    public void setJson(boolean isJson) {
+        this.isJson = isJson;
+    }
+    public HashMap<String, Object> getSession() {
+        return session;
+    }
+
+    public void setSession(HashMap<String, Object> session) {
+        this.session = session;
+    }
+
+    public boolean _session() {
+        return session != null;
+    }
 
     public ModelView() {
         this.data = new HashMap<>();
