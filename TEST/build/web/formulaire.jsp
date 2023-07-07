@@ -8,8 +8,8 @@
   </head>
   <body>
     <form action="affiche" method="get">
-     <p>nom  <input type="text" id="Nom" name="nom"></p>
-      <p>age <input type="text" id="Age" name="age"></p>
+     <p>nom  <input type="text" id="Nom" name="Nom"></p>
+      <p>age <input type="text" id="Age" name="Age"></p>
       <input type="submit" value="Submit Quote Request">
     </form>
   </body>

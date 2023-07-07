@@ -4,6 +4,7 @@ import etu1946.framework.Mapping;
 import etu1946.framework.annotation.Url;
 import etu1946.framework.annotation.Scope;
 import etu1946.framework.annotation.Auth;
+import etu1946.framework.annotation.RestAPI;
 import etu1946.framework.view.ModelView;
 import etu1946.framework.utils.Utils;
 
@@ -121,83 +122,6 @@ public class FrontServlet extends HttpServlet
             return mappings;
         }
 
-                
-
-        private void processRequest(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-            PrintWriter out = resp.getWriter();
-            try {
-                String urlPattern = getURLPattern(req);
-                Mapping mapping = mappingUrls.get(urlPattern);
-                if (mapping != null) {
-                    Map<String, String[]> params = req.getParameterMap();
-                    ModelView mv = getMethodeMV(mapping, out, params);
-
-                    if (mv.getData() != null) {
-                        if(mv.isJson()){
-                            Gson gson = new Gson();
-                            for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
-                                String json = gson.toJson(entry.getValue());
-                                req.setAttribute(entry.getKey(),json);
-                            }
-                        }else{
-                            for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
-                                req.setAttribute(entry.getKey(), entry.getValue());
-                            }
-                        }
-                    }
-
-                    if (mv._session()) {
-                        for (String key : mv.getSession().keySet()) {
-                            req.getSession().setAttribute(key, mv.getSession().get(key));
-                        }
-                    }
-
-                    Object obj = To_Object(mapping.getClassName(), params,out);
-                    req.setAttribute(mapping.getMethod(), obj);
-                    RequestDispatcher dispat = req.getRequestDispatcher(mv.getView());
-                    dispat.forward(req, resp);
-
-                } else {
-                    out.println("none");
-                }
-            } catch (Exception e) {
-                e.printStackTrace(out);
-            }
-        }
-
-        public Object To_Object(String className, Map<String, String[]> params, PrintWriter out) throws Exception {
-            Object obj = null;
-            try {
-                if (singleton.containsKey(className)) {
-                    obj = singleton.get(className);
-                    Utils.resetFieldsToDefaultValues(obj);
-                } else {
-                    Class<?> cls = Class.forName("etu1946.framework.models." + className);
-                    obj = cls.getDeclaredConstructor().newInstance();
-                }
-
-                Field[] fields = obj.getClass().getDeclaredFields();
-                String setterName;
-                for (Field field : fields) {
-                    field.setAccessible(true);
-                    String fieldName = field.getName();
-                    if (params.containsKey(fieldName)) {
-                        String[] values = params.get(fieldName);
-                        Class<?> fieldType = field.getType();
-                        Object fieldValue = Utils.castValueWithType(fieldType,values[0]);
-                        setterName = "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
-
-                        Method setterMethod = obj.getClass().getDeclaredMethod(setterName, fieldType);
-                        setterMethod.invoke(obj, fieldValue);
-                    }
-                }
-            } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                throw new Exception("Error creating object: " + e.getMessage(), e);
-            }
-            return obj;
-        }
-
-
        
         private ModelView getMethodeMV(Mapping mapping, PrintWriter out, Map<String, String[]> params) throws Exception {
             String className = mapping.getClassName();
@@ -241,6 +165,138 @@ public class FrontServlet extends HttpServlet
             ModelView mv = (ModelView) method.invoke(obj, arguments);
             return mv;
         }
+
+
+            
+        private String invokeRestAPI(Mapping mapping,  Map<String, String[]> params) throws Exception {
+            String className = mapping.getClassName();
+            String methodName = mapping.getMethod();
+            ClassLoader loader = Thread.currentThread().getContextClassLoader();
+            Class<?> load = loader.loadClass("etu1946.framework.models." + className);
+            Method method = null;
+
+            for (Method m : load.getMethods()) {
+                if (m.getName().equals(methodName)) {
+                    method = m;
+                    break;
+                }
+            }
+
+            Url annotation = method.getAnnotation(Url.class);
+            Object[] arguments = new Object[annotation.params().length];
+            String[] valeurs = annotation.params();
+            String[] args = annotation.params();
+            
+            Parameter[] parameters = method.getParameters();
+
+            for (int i = 0; i < args.length; i++) {
+                Class<?> parameterType = parameters[i].getType();
+                boolean found = false;
+                for (String param : params.keySet()) {
+                    if (args[i].equals(param)) {
+                        String[] values = params.get(param);
+                        arguments[i] = Utils.castValueWithType(parameterType,values[0]);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    arguments[i] = null;
+                }
+            }
+
+            RestAPI restAPIAnnotation = method.getAnnotation(RestAPI.class);
+            if (restAPIAnnotation != null && restAPIAnnotation.value().equals("json")) {
+                Object obj = load.getConstructor().newInstance();
+                obj =  method.invoke(obj, arguments);
+                Gson gson = new Gson();
+                String json = gson.toJson(obj);
+                return json;
+            }
+            return null;
+        }
+
+        private void processRequest(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+            PrintWriter out = resp.getWriter();
+            try {
+                String urlPattern = getURLPattern(req);
+                Mapping mapping = mappingUrls.get(urlPattern);
+                if (mapping != null) {
+                        Map<String, String[]> params = req.getParameterMap();
+                        String PrintJson =  invokeRestAPI(mapping,params);
+                    if(PrintJson!=null){
+                        out.println(PrintJson);
+                    }else{
+                        ModelView mv = getMethodeMV(mapping, out, params);
+                        //ModelView
+                        if (mv.getData() != null) {
+                            if(mv.isJson()){
+                                Gson gson = new Gson();
+                                for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
+                                    String json = gson.toJson(entry.getValue());
+                                    req.setAttribute(entry.getKey(),json);
+                                }
+                            }else{
+                                for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
+                                    req.setAttribute(entry.getKey(), entry.getValue());
+                                }
+                            }
+                        }
+
+                        if (mv._session()) {
+                            for (String key : mv.getSession().keySet()) {
+                                req.getSession().setAttribute(key, mv.getSession().get(key));
+                            }
+                        }
+
+                        //Formulaire
+                        Object obj = To_Object(mapping.getClassName(), params);
+                        req.setAttribute(mapping.getMethod(), obj);
+
+                    
+                        RequestDispatcher dispat = req.getRequestDispatcher(mv.getView());
+                        dispat.forward(req, resp);
+                    }
+                } else {
+                    out.println("none");
+                }
+            } catch (Exception e) {
+                e.printStackTrace(out);
+            }
+        }
+
+        public Object To_Object(String className, Map<String, String[]> params) throws Exception {
+            Object obj = null;
+            try {
+                if (singleton.containsKey(className)) {
+                    obj = singleton.get(className);
+                    Utils.resetFieldsToDefaultValues(obj);
+                } else {
+                    Class<?> cls = Class.forName("etu1946.framework.models." + className);
+                    obj = cls.getDeclaredConstructor().newInstance();
+                }
+
+                Field[] fields = obj.getClass().getDeclaredFields();
+                String setterName;
+                for (Field field : fields) {
+                    field.setAccessible(true);
+                    String fieldName = field.getName();
+                    if (params.containsKey(fieldName)) {
+                        String[] values = params.get(fieldName);
+                        Class<?> fieldType = field.getType();
+                        Object fieldValue = Utils.castValueWithType(fieldType,values[0]);
+                        setterName = "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
+
+                        Method setterMethod = obj.getClass().getDeclaredMethod(setterName, fieldType);
+                        setterMethod.invoke(obj, fieldValue);
+                    }
+                }
+            } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new Exception("Error creating object: " + e.getMessage(), e);
+            }
+            return obj;
+        }
+
 
 
         public static String getURLPattern(HttpServletRequest request) throws Exception {

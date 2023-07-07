@@ -7,7 +7,7 @@
     <title>JSP Page</title>
 </head>
 <body>
-    <% Emp obj = (Emp) request.getAttribute("test"); %>
+    <% Emp obj = (Emp) request.getAttribute("affiche"); %>
     Nom: <%= obj.getNom() %><br>
     Age: <%= obj.getAge() %><br>
 </body>
