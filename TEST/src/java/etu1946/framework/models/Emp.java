@@ -27,7 +27,10 @@ public void setAge(Integer age) {
         ModelView vue = new ModelView();
         try{
         vue.setView("list.jsp");
-        vue.addItem("test",age+nom);
+        Emp user = new Emp();
+        user.setNom(nom);
+        user.setAge(age);
+        vue.addItem("age",age*age);
         
          }catch(Exception e){
                 

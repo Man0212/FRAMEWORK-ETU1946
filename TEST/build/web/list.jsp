@@ -8,7 +8,8 @@
     </head>
 
     <body>
-        <p>Valeur Front to view : ${test}</p>
+        <p>Valeur Front to view : ${age}</p>
+        
     </body>
 
     </html>

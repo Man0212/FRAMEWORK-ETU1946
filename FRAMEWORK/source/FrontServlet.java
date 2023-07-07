@@ -3,10 +3,9 @@ package etu1946.framework.servlet;
 import etu1946.framework.Mapping;
 import etu1946.framework.annotation.Url;
 import etu1946.framework.annotation.Scope;
+import etu1946.framework.annotation.Auth;
 import etu1946.framework.view.ModelView;
 import etu1946.framework.utils.Utils;
-
-
 
 import java.io.*;
 import jakarta.servlet.*;
@@ -33,10 +32,31 @@ public class FrontServlet extends HttpServlet
     {
         HashMap<String, Object> singleton = new HashMap<>();
         HashMap<String, Mapping> mappingUrls;
+        String session, profil;
+
+        private boolean checkAuth(HttpServletRequest request, Method method) {
+            Auth authentification = method.getAnnotation(Auth.class);
+            if (!method.isAnnotationPresent(Auth.class))
+                return false;
+            if (request.getSession().getAttribute(session) == null)
+                return false;
+            if (((boolean) request.getSession().getAttribute(session)) == false)
+                return false;
+
+            String type = "";
+            if (request.getSession().getAttribute(profil) != null) {
+                type = request.getSession().getAttribute(profil).toString();
+            }
+            if (!authentification.type().equals(type))
+                return false;
+            return true;
+        }
 
         public void init() throws ServletException {
             super.init();
             this.setMappingUrls(analyzeModelsDirectory());
+            session = getServletConfig().getInitParameter("session");
+            profil = getServletConfig().getInitParameter("profil");
         }
 
         private String getClassNameFromFile(File file) {
@@ -117,8 +137,14 @@ public class FrontServlet extends HttpServlet
                         }
                     }
 
+                    if (mv._session()) {
+                        for (String key : mv.getSession().keySet()) {
+                            req.getSession().setAttribute(key, mv.getSession().get(key));
+                        }
+                    }
+
                     Object obj = To_Object(mapping.getClassName(), params,out);
-                    req.setAttribute("test", obj);
+                    req.setAttribute(mapping.getMethod(), obj);
                     RequestDispatcher dispat = req.getRequestDispatcher(mv.getView());
                     dispat.forward(req, resp);
 
